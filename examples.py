@@ -3,15 +3,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import App.OctLayers as oct
+import matplotlib.colors as colors
+from gray2color import gray2color
+import cv2
+from skimage.color import gray2rgb
+import os
+import nibabel as nib
 
-def layerMaskExample(obj):
-    """Demonstrates how to get a mask for an OCT layer and apply it to the OCT images
-    Note surfaces are numbered from 0 not 1"""
-    layer_mask = obj.getOctLayerMask(3,4,True)
+def layerMaskExample(obj, combined_str, folder_output):
+    num_layers = 10  
     myoct = np.copy(obj.octdata)
-    myoct[layer_mask] = 255
-    plt.imshow(myoct[0,:,:])
-    plt.show()
+    colors = [100,150, 200,300,400,500,600,800,1000,1200]
+    composite_image = np.zeros_like(myoct) #, dtype=np.uint8)
+    for j in range(128):
+        for i in range(num_layers):
+            layer_mask = obj.getOctLayerMask(i, i + 1, True)  # Create mask for layers i to i+1
+            color = colors[i]
+            composite_image[layer_mask] = color
+
+    output_path = os.path.join(folder_output, f'{combined_str}.nii')
+    nii_img = nib.Nifti1Image(composite_image.astype(np.uint16), affine=np.eye(4))  # Create NIfTI image with all layers
+    nib.save(nii_img, output_path)
     
 def etdrsThicknessExample(obj):
     """Demonstrates how to get layer thickness values for the 9 etdrs regions
@@ -22,9 +34,6 @@ def etdrsThicknessExample(obj):
     
     #TODO: make this a proper test
     # layers 0-3 should be thicker than 3-5 (except at the fovea)
-    print (thickness.loc['Fovea'][0] < thickness.loc['Fovea'][1])
-    print np.all((thickness.loc[:,0] > thickness.loc[:,1])[1:])
-    print thickness
 
 
 def etdrsIntensityExample(obj):
@@ -36,24 +45,24 @@ def etdrsIntensityExample(obj):
     
     #TODO: make this a proper test
     # layers 5 -6 should be dimmer than 7 - 10
-    print np.all(intensities.loc[:,0] < intensities.loc[:,1])
-    print intensities
-    
 
+if __name__=='__main__':   
+    df = pd.read_csv('/cmaldonado/segmentation/nnunet_test.bulk', sep=" ", header=None)    
+    for i, (id_col, value_col) in enumerate(zip(df[0], df[1])):
+        combined_str = f'{id_col}_{value_col}'
+        os.mkdir(f'/cmaldonado/segmentation/Data/NIfTI/nnunet_test/{combined_str}')
+        folder_output = f'/cmaldonado/segmentation/Data/NIfTI/nnunet_test/{combined_str}'
+        folder_path = f'/cmaldonado/segmentation/Data/IOWA/nnunet_test/fds_test_nnunet/{combined_str}'
+        fname_layers = os.path.join(folder_path, f'{combined_str}_Surfaces_Iowa.xml')
+        fname_centers = os.path.join(folder_path, f'{combined_str}_GridCenter_Iowa.xml')
+        fname = os.path.join(folder_path, f'{combined_str}_OCT_Iowa.fds')
 
-if __name__=='__main__':
-    plt.gray()
-    
-    fname = 'Data/Sample/Cirrus/IMGExportFiles/Sample1/Macular Cube 512x128_01-01-2001_01-01-01_OS_sn41343_cube_z.img'
-    fname_layers = 'Data/Sample/Cirrus/IMGExportFiles/Sample1/Macular Cube 512x128_01-01-2001_01-01-01_OS_sn41343_cube_z/Macular Cube 512x128_01-01-2001_01-01-01_OS_sn41343_cube_z_Surfaces_Iowa.xml'
-    fname_centers = 'Data/Sample/Cirrus/IMGExportFiles/Sample1/Macular Cube 512x128_01-01-2001_01-01-01_OS_sn41343_cube_z/Macular Cube 512x128_01-01-2001_01-01-01_OS_sn41343_cube_z_GridCenter_Iowa.xml'
-    
-    data_oct = oct.OctLayers(filename=fname_layers,
+        data_oct = oct.OctLayers(filename=fname_layers,
                              center_filename=fname_centers,
                              raw_filename=fname)
-    data_oct.findFovea()
-    data_oct.centerData()
-    
-    # layerMaskExample(data_oct)
-    etdrsThicknessExample(data_oct)
-    etdrsIntensityExample(data_oct)
+        data_oct.findFovea()
+        data_oct.centerData()
+
+        layerMaskExample(data_oct, combined_str, folder_output)
+        etdrsThicknessExample(data_oct)
+        etdrsIntensityExample(data_oct)

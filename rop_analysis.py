@@ -16,7 +16,7 @@ from PIL import Image
 if __name__=='__main__':
     logging.basicConfig(level=logging.INFO)
 
-    data_dir = '/mnt/AO/OCT ROP'
+    data_dir = '/cmaldonado/segmentation/Data/IOWA/1065104_21012_0_0/'
 
     # define the layers of interest
     #    [topSurface,bottomSurface,Name,applyMask]
